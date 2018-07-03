@@ -13,16 +13,24 @@ from reportlab.lib.fonts import addMapping
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.lib.units import cm, inch
 from reportlab.lib.pagesizes import A4
-from reportlab.platypus import Paragraph, Table
+from reportlab.platypus import Paragraph
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 
 
 class Document:
 
     def __init__(self, originName):
-        self.fileDir = 'pdf/'
+        self.fileDir = 'pdf/60/'
         self.filePath = self.fileDir + originName
         self.newName = 'neu.pdf'
+
+        self.logoWidth = 120
+        self.logoHeight = 41
+        #  padding in the stamp box
+        self.paddingBottom = 10
+        self.paddingTop = 5
+        self.linespace = 3
+
         self.printMsg('New document initialized: ' + originName, 'msg')
 
     def printMsg(self, txt, mode):
@@ -34,326 +42,270 @@ class Document:
     def startPdfParser(self):
         self.getPageCoors()
         self.getOcrCoors()
+        self.setDocType()
+        self.getStampText()
+        self.getStampSize()
+        self.setStampPosition()
+        self.setStampParams()
+        self.createStampTpl()
+        self.mergePDFs()
 
     def getPageCoors(self):
-        # check if pdfinfo installed
-        progName = 'pdfinfo'
-        status = subprocess.getstatusoutput(progName)[0]
-        if status != 127:
-            out_box = subprocess.check_output(
-                [progName + " -box -f 1 -l 1 "+self.filePath+"| grep -E 'MediaBox|CropBox'"], shell=True)
-            boxes = str(out_box)
-            boxex = boxes.replace("   ", ",")
-            boxes = boxex.replace(" ", "")
-            boxes = boxes.split("\\n")
+        try:
+            # check if pdfinfo installed
+            progName = 'pdfinfo'
+            status = subprocess.getstatusoutput(progName)[0]
+            if status != 127:
+                out_box = subprocess.check_output(
+                    [progName + " -box -f 1 -l 1 "+self.filePath+"| grep -E 'MediaBox|CropBox'"], shell=True)
+                boxes = str(out_box)
+                boxex = boxes.replace("   ", ",")
+                boxes = boxex.replace(" ", "")
+                boxes = boxes.split("\\n")
 
-            # cropBox coordinates
-            CropBox = boxes[1].split(",")
-            self.cropBottom = int(float(CropBox[4]))
-            self.cropX = int(float(CropBox[5]))
-            self.cropY = int(float(CropBox[6]))
+                # cropBox coordinates
+                CropBox = boxes[1].split(",")
+                self.cropBottom = int(float(CropBox[4]))
+                self.cropX = int(float(CropBox[5]))
+                self.cropY = int(float(CropBox[6]))
 
-            # mediaBox coordinates
-            MediaBox = boxes[0].split(",")
-            self.mediaBottom = int(float(MediaBox[3]))
-            self.mediaX = int(float(MediaBox[4]))
-            self.mediaY = int(float(MediaBox[5]))
-        else:
-            self.printMsg(progName + ' not installed on your system.', 'error')
+                # mediaBox coordinates
+                MediaBox = boxes[0].split(",")
+                self.mediaBottom = int(float(MediaBox[3]))
+                self.mediaX = int(float(MediaBox[4]))
+                self.mediaY = int(float(MediaBox[5]))
+            else:
+                self.printMsg(
+                    progName + ' not installed on your system.', 'error')
+        except:
+            next
 
     def getOcrCoors(self):
-        # get OCR data
-        proc = subprocess.Popen(['python', 'vendor/pdfminer/tools/pdf2txt.py',
-                                 '-p', '1', '-t', 'xml', self.filePath], stdout=subprocess.PIPE)
-        procOutput = proc.communicate()[0]
-        tree = etree.fromstring(procOutput)
-        root = tree.getroottree()
-        # Parse OCR-Text coordinates
-        # check if there is text on the right bottom side
-        for textbox in root.findall("./page[@id='1']/textbox[last()-1]/textline[last()]"):
-            bottomTest = textbox.attrib['bbox']
-            bottomTest = bottomTest.split(',')
-            bottomTest = bottomTest[1].split('.')
-            textBottomRight = int(bottomTest[0])
+        try:
+            # get OCR data
+            proc = subprocess.Popen(['python', 'vendor/pdfminer/tools/pdf2txt.py',
+                                     '-p', '1', '-t', 'xml', self.filePath], stdout=subprocess.PIPE)
+            procOutput = proc.communicate()[0]
+            tree = etree.fromstring(procOutput)
+            root = tree.getroottree()
+            # Parse OCR-Text coordinates
+            # check if there is text on the right bottom side
+            for textbox in root.findall("./page[@id='1']/textbox[last()-1]/textline[last()]"):
+                bottomTest = textbox.attrib['bbox']
+                bottomTest = bottomTest.split(',')
+                bottomTest = bottomTest[1].split('.')
+                textBottomRight = int(bottomTest[0])
 
-        # get coors for the text on the bottom
-        for textbox in root.findall("./page[@id='1']/textbox[last()]/textline[last()]"):
-            bottom = textbox.attrib['bbox']
-            bottom = bottom.split(',')
-            bottom = bottom[1].split('.')
-            self.textBottom = int(bottom[0])
-            self.textBottom = textBottomRight if self.textBottom > textBottomRight else self.textBottom
+            # get coors for the text on the bottom
+            for textbox in root.findall("./page[@id='1']/textbox[last()]/textline[last()]"):
+                bottom = textbox.attrib['bbox']
+                bottom = bottom.split(',')
+                bottom = bottom[1].split('.')
+                self.textBottom = int(bottom[0])
+                self.textBottom = textBottomRight if self.textBottom > textBottomRight else self.textBottom
 
-        # Get OCR lmargins
-        rand_list = ""
-        for textbox in root.findall("./page/textbox/textline"):
-            right = textbox.attrib['bbox']
-            right = right.split(',')
-            right = right[0].split('.')
-            right = right[0]
-            rand_list += right+' '
-        rand_list = rand_list.split()
-        rand_list = sorted(rand_list)
-        self.textRight = int(min(rand_list, key=int))
-        rand_list = ""
+            # Get OCR lmargins
+            rand_list = ""
+            for textbox in root.findall("./page/textbox/textline"):
+                right = textbox.attrib['bbox']
+                right = right.split(',')
+                right = right[0].split('.')
+                right = right[0]
+                rand_list += right+' '
+            rand_list = rand_list.split()
+            rand_list = sorted(rand_list)
+            self.textRight = int(min(rand_list, key=int))
+            rand_list = ""
 
-        for textbox in root.findall("./page/textbox/textline"):
-            left = textbox.attrib['bbox']
-            left = left.split(',')
-            left = left[2].split('.')
-            left = left[0]
-            rand_list += left+' '
-        rand_list = rand_list.split()
-        rand_list = sorted(rand_list)
-        self.textLeft = int(max(rand_list, key=int))
+            for textbox in root.findall("./page/textbox/textline"):
+                left = textbox.attrib['bbox']
+                left = left.split(',')
+                left = left[2].split('.')
+                left = left[0]
+                rand_list += left+' '
+            rand_list = rand_list.split()
+            rand_list = sorted(rand_list)
+            self.textLeft = int(max(rand_list, key=int))
 
-        for textbox in root.findall('./page[@id="1"]/textbox[@id="0"]/textline[last()1]'):
-            top = textbox.attrib['bbox']
-            top = top.split(',')
-            top = top[1].split('.')
-            self.textTop = int(top[0])
+            for textbox in root.findall('./page[@id="1"]/textbox[@id="0"]/textline[last()1]'):
+                top = textbox.attrib['bbox']
+                top = top.split(',')
+                top = top[1].split('.')
+                self.textTop = int(top[0])
 
-        for page in root.findall("page[@id='1']"):
-            page = page.attrib['bbox']
-            page = page.split(',')
-            breite = page[2].split('.')
-            self.breite = int(breite[0])
-            page = page[3].split('.')
-            self.pageWidth = int(page[0])
+            for page in root.findall("page[@id='1']"):
+                page = page.attrib['bbox']
+                page = page.split(',')
+                breite = page[2].split('.')
+                self.breite = int(breite[0])
+                page = page[3].split('.')
+                self.pageWidth = int(page[0])
 
-        self.stampAreaWidth = self.textLeft-self.textRight
-        print('---- PDF parameters ----')
-        print('cropBottom: '+str(self.cropBottom))
-        print('cropY: '+str(self.cropY))
-        print('cropX: '+str(self.cropX))
-        print('------')
-        print('mediaBottom: '+str(self.mediaBottom))
-        print('mediaY: '+str(self.mediaY))
-        print('mediaX: '+str(self.mediaX))
-        print('------')
-        print('textBottom: '+str(self.textBottom))
-        print('textTop: '+str(self.textTop))
-        print('textRight: '+str(self.textRight))
-        print('textLeft: '+str(self.textLeft))
-        print('stampWidth: '+str(self.stampAreaWidth))
-        self.checkFreeSpace()
+            self.stampAreaWidth = self.textLeft-self.textRight
+        except:
+            next
 
-    def checkFreeSpace(self):
-        # stamp = StampSize
-        # zahl = firstBlockSize
-        if self.cropY == self.mediaY and self.cropX == self.mediaX:
+    def setDocType(self):
+        self.backgroundWidth = self.mediaX
+        self.logoX = self.textLeft - self.logoWidth
+        self.textWidth = self.textLeft - self.textRight - self.logoWidth
+
+        if self.cropY == self.mediaY:
+            self.mode = 'no crop'
             self.marginTop = self.mediaY - self.textTop
             self.marginBottom = self.textBottom
-            # cropB = MediaBottom
-            # cropT = MediaTop
-            # if stamp < bottom-10:
-            #     xx = bottom-zahl
-            #     background = bottom-110
-            #     image = bottom-37
-            #     #print ("no CropBox. Unten.", num)
-            # elif stamp < MediaTop-top:
-            #     xx = MediaTop - zahl - 10
-            #     background = "NULL"
-            #     image = MediaTop - 37 - 7
-            #     #print ("no CropBox. Oben.", num)
-            # else:
-            #     image = 0
-            #     background = "NOSPACE"
-            #     xx = 0
-            #     print ("no space,", num)
-        elif self.cropY == self.mediaY and self.cropX != self.mediaX:
-            print('croped on X')
-        elif self.cropX == self.mediaX and self.cropY != self.mediaY:
+            self.bottomSpace = self.marginBottom
+            self.topSpace = self.marginTop
+        elif self.cropY != self.mediaY:
+            self.mode = 'croped'
             self.marginTop = self.mediaY - self.textTop
             self.marginBottom = self.cropBottom
-            self.cropB = self.marginBottom
-            self.cropT = self.marginTop
-            self.background = self.marginBottom
-            # cropB = CropBottom - stamp
-            # cropT = MediaTop
-            # xx = CropBottom - zahl
-            # image = CropBottom - 37
-            # background = CropBottom - 110
-            # print ("nur unten", num)
-        # if CropBottom == MediaBottom:
-        #     cropB = 0
-        #     if stamp < bottom:
-        #         cropT = CropTop
-        #         xx = bottom - zahl
-        #         background = bottom - 110
-        #         image = bottom - 37
-        #         #print ("unten", num)
-        #     else:
-        #         cropT = CropTop + stamp + 15
-        #         xx = cropT - zahl - 10
-        #         background = CropTop
-        #         image = cropT - 37 - 7
-        #         #print ("oben", image, xx, num)
-        #     #print (bottom, stamp)
-        # else:
-        #     if stamp < CropBottom:
-        #         cropB = CropBottom - stamp - 15
-        #         cropT = CropTop
-        #         xx = CropBottom - zahl
-        #         background = CropBottom - 110
-        #         image = CropBottom - 37
-        #         #print ("oben und unten. Unten gestempelt", num)
+            self.bottomSpace = self.marginBottom
+            self.topSpace = self.mediaY - self.cropY
 
-        #     else:
-        #         cropB = CropBottom
-        #         cropT = CropTop + stamp
-        #         xx = cropT - zahl
-        #         background = CropTop
-        #         image = cropT - 37
-            # print ("oben und unten. Oben gestempelt", stamp, image, xx, num)
-        self.toStamp()
-    def toStamp(self):
-        # logoW = 110
-        # logoH = 37
-        backW = 500
-        backH = 110
-        Stempel = io.BytesIO()
-        # Blank = io.BytesIO()
-        tempSeite = canvas.Canvas(Stempel)
-        self.stampText = 'text link copyright'
-        # styles = getSampleStyleSheet()
-        # styleN = styles['Normal']
+    def getStampSize(self):
+        self.Stamp = io.BytesIO()
+        self.tempSeite = canvas.Canvas(self.Stamp)
         style = self.setFontArt(self.stampText)
-        # if background != "NOSPACE":
-        #     if background != "NULL":
-        tempSeite.drawImage('white.png', 0, self.background, backW, backH)
-        textStempel = Paragraph(self.stampText, style=style)
-        textStempel.wrapOn(tempSeite, self.stampAreaWidth, 100)
-        textStempel.drawOn(tempSeite, self.textRight, self.cropT)
-            # textStempel = Paragraph(zz, style=style)
-            # textStempel.wrapOn(tempSeite, stampareaWd, 100)
-            # textStempel.drawOn(tempSeite, rechts, xx-15)
-            # textStempel = Paragraph(cc, style=style)
-            # textStempel.wrapOn(tempSeite, stampareaWd, 100)
-            # textStempel.drawOn(tempSeite, rechts, xx-30)
-            # tempSeite.drawImage('logo.png', links-110,
-            #                     image, logoW, logoH, mask='auto')
-        tempSeite.showPage()
-        tempSeite.save()
-        # cropPx = cropST
-        # filee = "/home/anovikov/articles"+num
-        filee = self.filePath
-        # Merge zwei PDFs
-        c = canvas.Canvas('blank.pdf')
-        c.setPageSize((self.breite, self.mediaY))
-        c.showPage()
-        c.save()
-        urpdf = open(filee, 'rb')
-        pdfReader = PyPDF2.PdfFileReader(urpdf)
-        ersteSeite = pdfReader.getPage(0)
-        pdfDReader = PyPDF2.PdfFileReader('blank.pdf', 'rb')
-        ersteSeite.mergeScaledPage(pdfDReader.getPage(0), 1)
-        ersteSeite.cropBox.lowerLeft = (0, self.cropB + 300)
-        ersteSeite.cropBox.upperLeft = (0, self.cropT +100)
-        pdfSReader = PyPDF2.PdfFileReader(Stempel)
-        ersteSeite.mergeScaledPage(pdfSReader.getPage(0), 1)
-        pdfWriter = PyPDF2.PdfFileWriter()
-        pdfWriter.addPage(ersteSeite)
-        pdfReader = PyPDF2.PdfFileReader(urpdf)
-        for pageNum in range(1, pdfReader.numPages):
-            pageObj = pdfReader.getPage(pageNum)
-            pdfWriter.addPage(pageObj)
-        # ennd = "/home/anovikov/articles_stempel/articles"+num
-        ennd = "./neu.pdf"
-        endFile = open(ennd, 'wb')
-        pdfWriter.write(endFile)
-        urpdf.close()
-        endFile.close()
 
-    def setFontArt(self, t):
-        tt = t
-        fontS = 10
-        lead = 9
-        pdfmetrics.registerFont(TTFont('Reg', 'reg.ttf'))
-        pdfmetrics.registerFont(TTFont('Regi', 'regi.ttf'))
-        addMapping('Reg', 0, 0, 'Reg')
-        addMapping('Reg', 0, 1, 'Regi')
-        style1 = ParagraphStyle(
-            name='Normal',
-            fontName='Reg',
-            fontSize=fontS,
-            leading=lead,
-            borderWidth=0,
-            borderColor='Black',
-            borderPadding=2,
-        )
+        # TODO: create one para with multiple lines instead of three paras
+        self.textStampP = Paragraph(self.stampText, style)
+        self.stampLinkP = Paragraph(self.stampLink, style)
+        self.stampCopyP = Paragraph(self.stampCopy, style)
 
-        pdfmetrics.registerFont(TTFont('Free', 'FreeSerif.ttf'))
-        pdfmetrics.registerFont(TTFont('FreeIt', 'FreeSerifItalic.ttf'))
-        addMapping('Free', 0, 0, 'Free')
-        addMapping('Free', 0, 1, 'FreeIt')
-        style2 = ParagraphStyle(
-            name='Normal',
-            fontName='Free',
-            fontSize=fontS,
-            leading=lead,
-            borderWidth=0,
-            borderColor='Black',
-            borderPadding=2,
-        )
-        tt = re.sub("â", "-", tt)
-        with open("whitelist_reg.csv") as wlist:
-            wl = csv.reader(wlist)
-            wl = list(wl)
-            white_reg = []
-            for n in wl:
-                white_reg.append(n[0])
-        with open("whitelist_freeserif.csv") as wtlist:
-            wtl = csv.reader(wtlist)
-            wtl = list(wtl)
-            white_freeserif = []
-            for x in wtl:
-                white_freeserif.append(x[0])
-        tt_list = list(tt)
-        flag = 0
-        for numm in tt_list:
-            char = ord(numm)
-            char = str(char)
-            if char not in white_reg:
-                flag = 1
-                if char not in white_freeserif:
-                    print (
-                        "Achtung! Das folgende Symbol soll manuel überprüft werden: " + numm)
-                    print ("Die entsprechende Datei liegt unter "+num)
-        if flag == 1:
-            style = style2
-            fontart = "Free"
+        #  get X/Y coors of the stamp on the temp page
+        textStampW, self.textStampH = self.textStampP.wrapOn(
+            self.tempSeite, self.textWidth, self.cropY)
+        linkW, self.linkH = self.stampLinkP.wrapOn(
+            self.tempSeite, self.textWidth, self.cropY)
+        copyW, self.copyH = self.stampCopyP.wrapOn(
+            self.tempSeite, self.textWidth, self.cropY)
+        self.stampSize = self.textStampH + self.linkH + self.copyH + \
+            self.linespace*2 + self.paddingBottom + self.paddingTop
+
+    # check free space on the top/bottom and return boolean (true for bottom, false for top, None for no space)
+    def checkTopBottom(self):
+        if self.stampSize < self.bottomSpace:
+            return True
+        elif self.stampSize < self.topSpace:
+            return False
+        elif self.stampSize > self.bottomSpace and self.stampSize > self.topSpace:
+            return None
+
+    # TODO: improve error parser
+    def setStampPosition(self):
+        flag = self.checkTopBottom()
+        if self.mode == 'no crop':
+            if flag is None:
+                self.mode = 'no space'
+            elif flag:
+                self.mode = 'bottom'
+            elif not flag:
+                self.mode = 'top'
+
         else:
-            style = style1
-            fontart = "Reg"
-        return style
+            if flag is None:
+                self.mode = 'no space'
+            elif flag:
+                self.mode = 'cropbottom' 
+            elif not flag:
+                self.mode = 'croptop'
 
-class Stamp:
-    global originName
+    def setStampParams(self):
+        print(self.mode)
+        if self.mode == 'bottom':
+            self.cropT = self.cropY
+            self.cropB = 0
+            self.backgroundHeight = self.stampSize
+            self.backgroundY = 0
+            self.logoY = self.backgroundHeight - self.logoHeight
+            self.textY = self.backgroundHeight - self.textStampH - self.paddingTop
 
-    def __init__(self):
-        self.stampText = 'text\n link \n copyright'
+        elif self.mode == 'top':
+            self.cropT = self.cropY
+            self.cropB = 0
+            self.backgroundHeight = self.stampSize
+            self.backgroundY = self.mediaY - self.stampSize
+            self.logoY = self.mediaY - self.logoHeight
+            self.textY = self.mediaY - self.paddingTop - self.textStampH
 
-    def setFontSize(self, width):
-        # testWd = width // param
+        elif self.mode == 'cropbottom':
+            self.cropT = self.cropY
+            self.cropB = self.marginBottom - self.stampSize
+            self.backgroundHeight = self.stampSize
+            self.backgroundY = self.marginBottom - self.stampSize
+            self.logoY = self.marginBottom - self.logoHeight
+            self.textY = self.marginBottom - self.textStampH - self.paddingTop
 
-        if f.CropRight < 404:
-            fontS = 8
-            lead = 9
-            # br = 103
-            mn = 13  # Luft
-        else:
-            fontS = 8
-            lead = 9
-            # br = 103
-            mn = 13
-        return fontS, lead, mn
+        elif self.mode == 'croptop':
+            self.backgroundHeight = self.stampSize
+            self.backgroundY = self.cropY
+            self.cropT = self.cropY + self.backgroundHeight
+            self.cropB = self.marginBottom 
+            self.logoY = self.cropY + self.stampSize - self.logoHeight
+            self.textY = self.cropY + self.stampSize - self.textStampH - self.paddingTop
+        
+    def createStampTpl(self):
+        #  draw background
+        self.tempSeite.drawImage(
+            'white.png', 0, self.backgroundY, self.backgroundWidth, self.backgroundHeight)
+        # draw logo
+        self.tempSeite.drawImage('logo.png', self.logoX,
+                                 self.logoY, self.logoWidth, self.logoHeight, mask='auto')
+        #  draw stamp text
+        self.textStampP.drawOn(self.tempSeite, self.textRight, self.textY)
+        self.stampLinkP.drawOn(
+            self.tempSeite, self.textRight, self.textY - self.linkH - self.linespace)
+        self.stampCopyP.drawOn(
+            self.tempSeite, self.textRight, self.textY - self.linkH - self.copyH - self.linespace*2)
 
-    def getStampText(self, num):
+        self.tempSeite.showPage()
+        self.tempSeite.save()
+
+    def mergePDFs(self):
+        try:
+            filee = self.filePath
+            # get
+            c = canvas.Canvas('blank.pdf')
+            c.setPageSize((self.breite, self.mediaY))
+            c.showPage()
+            c.save()
+            urpdf = open(filee, 'rb')
+            pdfReader = PyPDF2.PdfFileReader(urpdf)
+            ersteSeite = pdfReader.getPage(0)
+            pdfDReader = PyPDF2.PdfFileReader('blank.pdf', 'rb')
+            ersteSeite.mergeScaledPage(pdfDReader.getPage(0), 1)
+            # crop from the bottom
+            ersteSeite.cropBox.lowerLeft = (0, self.cropB)
+            # crop from the top
+            ersteSeite.cropBox.upperLeft = (0, self.cropT)
+            pdfSReader = PyPDF2.PdfFileReader(self.Stamp)
+            ersteSeite.mergeScaledPage(pdfSReader.getPage(0), 1)
+            pdfWriter = PyPDF2.PdfFileWriter()
+            pdfWriter.addPage(ersteSeite)
+            pdfReader = PyPDF2.PdfFileReader(urpdf)
+            for pageNum in range(1, pdfReader.numPages):
+                pageObj = pdfReader.getPage(pageNum)
+                pdfWriter.addPage(pageObj)
+            # ennd = "/home/anovikov/articles_stempel/articles"+num
+            ennd = "./neu.pdf"
+            endFile = open(ennd, 'wb')
+            pdfWriter.write(endFile)
+            urpdf.close()
+            endFile.close()
+        except:
+            traceback.print_exc(file=sys.stdout)
+
+    def getStampText(self):
+        # self.stampText = "<i>Lorem ipsum dolor</i> sit amet, Lorem ipsu od trmod tempor invidunt ut labore et dolore magna aliquyam erat, sed diam voluptua. At vero eos et accusam et j"
+        # self.stampLink = 'zitierfähiger Link:  <a href="">Name</a>'
+        # self.stampCopy = '© Alle Rechte vorbehalten.'
+        self.stampCopy = "© Alle Rechte vorbehalten."
+        num = originName
         with open('oai_last.csv') as csvfile:
             csvv = csv.reader(csvfile, delimiter='|', quotechar='#')
             csvL = ""
-            tt = ""
+            self.stampText = ""
             for row in csvv:
                 if row[9] == num:
                     cr = row[0]
@@ -369,30 +321,29 @@ class Stamp:
                     doi = row[6]
                     typ = row[7]
                     if typ == 'REZ':
-                        tt = "<i>"+name+"</i>, "+vorname+": Rezension zu: " + \
+                        self.stampText = "<i>"+name+"</i>, "+vorname+": Rezension zu: " + \
                             tit+". In: Bohemia "+bd + \
                                 " ("+jg+") H. "+hf+", "+sz+"."
-                        zz = 'zitierfähiger Link: <link href="'+doi+'">'+doi+'</link>'
-                        cc = "© Alle Rechte vorbehalten."
+                        self.stampLink = 'zitierfähiger Link: <link href="'+doi+'">'+doi+'</link>'
                     elif typ == 'ART':
-                        tt = "<i>"+name+"</i>, "+vorname+": "+tit + \
+                        self.stampText = "<i>"+name+"</i>, "+vorname+": "+tit + \
                             ". In: Bohemia "+bd+" ("+jg+") H. "+hf+", "+sz+"."
-                        zz = 'zitierfähiger Link: <link href="'+doi+'">'+doi+'</link>'
-                        cc = "© Alle Rechte vorbehalten."
+                        self.stampLink = 'zitierfähiger Link: <link href="'+doi+'">'+doi+'</link>'
                     elif typ == 'ABS':
-                        zz = 'zitierfähiger Link: <link href="'+doi+'">'+doi+'</link>'
-                        cc = "© Alle Rechte vorbehalten."
-                        tt = "Abstract zu: " + "<i>"+name+"</i>, "+vorname + \
+                        self.stampLink = 'zitierfähiger Link: <link href="'+doi+'">'+doi+'</link>'
+                        
+                        self.stampText = "Abstract zu: " + "<i>"+name+"</i>, "+vorname + \
                             ": "+tit+". In: Bohemia "+bd+" ("+jg+") H. "+hf+"."
                     else:
-                        zz = 'zitierfähiger Link: <link href="'+doi+'">'+doi+'</link>'
-                        cc = "© Alle Rechte vorbehalten."
-                        tt = "<i>"+name+"</i>, "+vorname+": Tagungsbericht zu: " + \
+                        self.stampLink = 'zitierfähiger Link: <link href="'+doi+'">'+doi+'</link>'
+                        self.stampText = "<i>"+name+"</i>, "+vorname+": Tagungsbericht zu: " + \
                             tit+". In: Bohemia "+bd + \
                                 " ("+jg+") H. "+hf+", "+sz+"."
 
     def setFontArt(self, t):
         tt = t
+        fontS = 8
+        lead = 9
         pdfmetrics.registerFont(TTFont('Reg', 'reg.ttf'))
         pdfmetrics.registerFont(TTFont('Regi', 'regi.ttf'))
         addMapping('Reg', 0, 0, 'Reg')
@@ -404,7 +355,8 @@ class Stamp:
             leading=lead,
             borderWidth=0,
             borderColor='Black',
-            borderPadding=2,
+            borderPadding=0,
+            wordWrap='LTR'
         )
 
         pdfmetrics.registerFont(TTFont('Free', 'FreeSerif.ttf'))
@@ -419,6 +371,7 @@ class Stamp:
             borderWidth=0,
             borderColor='Black',
             borderPadding=2,
+            wordWrap='LTR'
         )
         tt = re.sub("â", "-", tt)
         with open("whitelist_reg.csv") as wlist:
@@ -443,101 +396,23 @@ class Stamp:
                 if char not in white_freeserif:
                     print (
                         "Achtung! Das folgende Symbol soll manuel überprüft werden: " + numm)
-                    print ("Die entsprechende Datei liegt unter "+num)
-        if flag == 1:
-            style = style2
-            fontart = "Free"
-        else:
-            style = style1
-            fontart = "Reg"
+                    print ("Die entsprechende Datei liegt unter "+originName)
+        style = style2 if flag == 1 else style1
         return style
 
-    def getStampSize(self, width, metadata):
-        param = 4.6
-        mn = 8
-        testWd = width // param
-        csvLen = len(str(metadata))
-        firstBlock = csvLen // testWd
-        wholeStamp = csvLen // testWd + 4
-        firstBlockSize = int(float(firstBlock*mn))
-        StampSize = int(float(wholeStamp*mn))
-        return StampSize, firstBlockSize
-
-    def toStamp(self):
-        # logoW = 110
-        # logoH = 37
-        # backW = 500
-        # backH = 110
-        Stempel = io.BytesIO()
-        Blank = io.BytesIO()
-        tempSeite = canvas.Canvas(Stempel)
-        # styles = getSampleStyleSheet()
-        # styleN = styles['Normal']
-        style = setFontArt(seöf-s)
-        # if background != "NOSPACE":
-        #     if background != "NULL":
-        tempSeite.drawImage('white.png', 0, background, backW, backH)
-        textStempel = Paragraph(tt, style=style)
-        textStempel.wrapOn(tempSeite, stampareaWd, 100)
-        textStempel.drawOn(tempSeite, rechts, xx)
-            # textStempel = Paragraph(zz, style=style)
-            # textStempel.wrapOn(tempSeite, stampareaWd, 100)
-            # textStempel.drawOn(tempSeite, rechts, xx-15)
-            # textStempel = Paragraph(cc, style=style)
-            # textStempel.wrapOn(tempSeite, stampareaWd, 100)
-            # textStempel.drawOn(tempSeite, rechts, xx-30)
-            # tempSeite.drawImage('logo.png', links-110,
-            #                     image, logoW, logoH, mask='auto')
-        tempSeite.showPage()
-        tempSeite.save()
-        # cropPx = cropST
-        # filee = "/home/anovikov/articles"+num
-        filee = "./"+self.ori
-        # Merge zwei PDFs
-        c = canvas.Canvas('blank.pdf')
-        c.setPageSize((self.breite, self.mediaY))
-        c.showPage()
-        c.save()
-        urpdf = open(filee, 'rb')
-        pdfReader = PyPDF2.PdfFileReader(urpdf)
-        ersteSeite = pdfReader.getPage(0)
-        pdfDReader = PyPDF2.PdfFileReader('blank.pdf', 'rb')
-        ersteSeite.mergeScaledPage(pdfDReader.getPage(0), 1)
-        ersteSeite.cropBox.lowerLeft = (0, self.cropB)
-        ersteSeite.cropBox.upperLeft = (0, self.cropT)
-        pdfSReader = PyPDF2.PdfFileReader(Stempel)
-        ersteSeite.mergeScaledPage(pdfSReader.getPage(0), 1)
-        pdfWriter = PyPDF2.PdfFileWriter()
-        pdfWriter.addPage(ersteSeite)
-        pdfReader = PyPDF2.PdfFileReader(urpdf)
-        for pageNum in range(1, pdfReader.numPages):
-            pageObj = pdfReader.getPage(pageNum)
-            pdfWriter.addPage(pageObj)
-        # ennd = "/home/anovikov/articles_stempel/articles"+num
-        ennd = "./neu.pdf"
-        endFile = open(ennd, 'wb')
-        pdfWriter.write(endFile)
-        urpdf.close()
-        endFile.close()
-
-
 with open('kurz_test.csv') as kurz:
-    namek = csv.reader(kurz, delimiter=',', quotechar='#')
-    for fn in namek:
+    names = csv.reader(kurz, delimiter=',', quotechar='#')
+    for fn in names:
         try:
             originName = fn[3]
             newDoc = Document(originName)
             newDoc.startPdfParser()
-            # newStamp = Stamp()
-            # tt = 'Lorem ipsum'
-            # zz = 'zitierfähiger Link: <link href="">Link</link>'
-            # cc = '© Alle Rechte vorbehalten.'
-            # tt, cc, zz = s.getStampText(num)
-            # StampSize, firstBlockSize = s.getStampSize(f.stampareaWd, tt)
-            # fontS, lead, mn = s.setFontSize(f.stampareaWd)
-            # style = s.setFontArt(tt)
-            # cropB, cropT, xx, image, background = f.CropType(f.CropBottom, f.CropTop, f.MediaBottom, f.MediaTop, f.bottom, f.top, StampSize, firstBlockSize)
-            # test = s.toStamp(f.stampareaWd, cropB, cropT, xx, image, background, f.rechts, tt, cc, zz, f.breite, f.MediaTop, f.links)
         except IndexError:
-            print ("Error,", num)
+            print ("Error,", originName)
             continue
+
+#  TODO:
+# - argvs parameters
+# - improve logger
+# - separate core and optional(data parser) functions
+# - project structure
