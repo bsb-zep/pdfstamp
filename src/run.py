@@ -2,15 +2,15 @@ import logging
 import csv
 import pdfStamp
 
-with open('../output/log.log', 'w'):
+with open('../log', 'w'):
     pass
-logging.basicConfig(filename='../output/log.log', format='%(asctime)s - %(levelname)s - %(message)s', level=logging.INFO)
+logging.basicConfig(filename='../log', format='%(asctime)s - %(levelname)s - %(message)s', level=logging.INFO)
 
 fileList = '../../../fileList.csv'
 metadata = '../../../oai_last.csv'
 try:
     with open(fileList) as kurz:
-        names = csv.reader(kurz, delimiter=',', quotechar='#')
+        names = csv.reader(kurz, delimiter=';', quotechar='#')
         for fn in names:
             originName = fn[3]
             newDoc = pdfStamp.Document(originName, metadata)

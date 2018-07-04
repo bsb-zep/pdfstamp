@@ -23,7 +23,7 @@ class Document:
     def __init__(self, originName, metadata):
         # define logging properties
         self.logger = logging.getLogger(__name__)
-        handler = logging.FileHandler('../output/log.log')
+        handler = logging.FileHandler('../log')
         handler.setLevel(logging.ERROR)
         formatter = logging.Formatter(
             '%(asctime)s - %(levelname)s - %(message)s')
@@ -31,13 +31,14 @@ class Document:
         self.logger.addHandler(handler)
         # common configuration
         self.metadata = metadata
-        self.fileDir = ''
+        self.fileDir = '../../../articles/' + originName.split('-')[0] + '/public/'
         self.filePath = self.fileDir + originName
         self.fileName = originName
-        self.backgroundFile = '/home/anovikov/repos/stamp_data/data/images/white.png'
-        self.logoFile = '/home/anovikov/repos/stamp_data/data/images/logo.png'
+		
+        self.backgroundFile = '../../white.png'
+        self.logoFile = '../../logo.png'
         self.blankPdf = '../blank.pdf'
-        self.outPdf = '../output/' + originName
+        self.outPdf = '../../../articles_stamped/' + originName.split('-')[0] + '/public/' + originName
 
         #  some stamp params
         self.logoWidth = 120
@@ -45,7 +46,6 @@ class Document:
         self.paddingBottom = 10
         self.paddingTop = 5
         self.linespace = 3
-        self.logger.info('Current document name: '+self.filePath)
 
     def startPdfParser(self):
         self.getPageCoors()
@@ -75,8 +75,10 @@ class Document:
 
             # cropBox coordinates
             CropBox = boxes[1].split(",")
+            #print(CropBox)
             self.cropBottom = int(float(CropBox[4]))
             self.cropX = int(float(CropBox[5]))
+			
             self.cropY = int(float(CropBox[6]))
 
             # mediaBox coordinates
@@ -84,6 +86,8 @@ class Document:
             self.mediaBottom = int(float(MediaBox[3]))
             self.mediaX = int(float(MediaBox[4]))
             self.mediaY = int(float(MediaBox[5]))
+            #print(MediaBox)
+
         else:
             # self.logger.error(progName + ' not installed on your system.')
             print("Error: '" + progName + "' not installed on your system.")
@@ -152,7 +156,7 @@ class Document:
             self.stampAreaWidth = self.textLeft-self.textRight
             return True
         except Exception as e:
-            self.logger.warning('pdf coors are currupt or unreadable. Filename: '+self.filePath)
+            self.logger.warning('Pdf coordinates are currupt or unreadable. Filename: '+self.filePath)
             self.logger.error(e)
             next
             return False
@@ -163,18 +167,18 @@ class Document:
             self.logoX = self.textLeft - self.logoWidth
             self.textWidth = self.textLeft - self.textRight - self.logoWidth
 
-            if self.cropY == self.mediaY:
+            if self.cropY == self.mediaY and self.cropBottom == 0:
                 self.mode = 'no crop'
                 self.marginTop = self.mediaY - self.textTop
                 self.marginBottom = self.textBottom
                 self.bottomSpace = self.marginBottom
                 self.topSpace = self.marginTop
-            elif self.cropY != self.mediaY:
+            elif self.cropY != self.mediaY or self.cropBottom > 0:
                 self.mode = 'croped'
                 self.marginTop = self.mediaY - self.textTop
                 self.marginBottom = self.cropBottom
                 self.bottomSpace = self.marginBottom
-                self.topSpace = self.mediaY - self.cropY
+                self.topSpace = self.mediaY - self.textTop
         except Exception as e:
             self.logger.warning(e)
             next
@@ -230,7 +234,7 @@ class Document:
                 self.mode = 'croptop'
 
     def setStampParams(self):
-        self.logger.info('Current stamp mode: '+self.mode)
+        self.logger.info('Current document name: %s  --- MediaBox: %s %s --- CropBox: %s %s --- Stamp mode: %s', self.filePath, self.mediaX, self.mediaY, self.cropX, self.cropY, self.mode)
         if self.mode == 'bottom':
             self.cropT = self.cropY
             self.cropB = 0
