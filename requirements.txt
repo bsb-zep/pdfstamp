@@ -1,2 +1,2 @@
 pdfminer
-pdfinfo
+pdfinfo (python vendor/pdfminer/setup.py install)

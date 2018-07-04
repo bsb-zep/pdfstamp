@@ -31,7 +31,7 @@ class Document:
         self.logger.addHandler(handler)
         # common configuration
         self.metadata = metadata
-        self.fileDir = '/home/anovikov/repos/stamp_data/pdf/60/'
+        self.fileDir = ''
         self.filePath = self.fileDir + originName
         self.fileName = originName
         self.backgroundFile = '/home/anovikov/repos/stamp_data/data/images/white.png'
