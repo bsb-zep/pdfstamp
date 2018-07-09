@@ -20,7 +20,7 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 
 class Document:
 
-    def __init__(self, originFile, config):
+    def __init__(self, originFile, config, mode):
         # define logging properties
         self.logger = logging.getLogger(__name__)
         handler = logging.FileHandler('../log')
@@ -32,15 +32,13 @@ class Document:
 		
         # common configuration
         self.metadata = config["stampDataPath"] + config["metadata"]
-        #self.fileDir = '../../../articles/' + originName.split('-')[0] + '/public/'
-        self.filePath = originFile
+        self.filePath = config["inputPath"] + originFile if mode == 'auto' else originFile
         self.fileName = originFile.split('/')[-1]
 		
         self.backgroundFile = config["stampDataPath"] + 'white.png'
         self.logoFile = config["stampDataPath"] + 'logo.png'
         self.blankPdf = '../blank.pdf'
-        self.outPdf = config["stampDataPath"] + "stamped/" + self.fileName
-        #self.outPdf = '../../../articles_stamped/' + originName.split('-')[0] + '/public/' + originName
+        self.outPdf = config["inputPath"] + originFile.replace('articles', 'articles_stamped')
 
         #  some stamp params
         self.logoWidth = 120
@@ -56,9 +54,10 @@ class Document:
             self.parseMetadata()
             self.getStampSize()
             self.setStampPosition()
-            self.setStampParams()
-            self.createStampTpl()
-            self.mergePDFs()
+            if self.mode != "NO SPACE":
+                self.setStampParams()
+                self.createStampTpl()
+                self.mergePDFs()
         else:
             self.logger.error('PDF coordinates are currupt or unreadable. Filename: '+self.filePath)
             next
@@ -221,7 +220,7 @@ class Document:
         flag = self.checkTopBottom()
         if self.mode == 'no crop':
             if flag is None:
-                self.mode = 'no space'
+                self.mode = 'NO SPACE'
             elif flag:
                 self.mode = 'bottom'
             elif not flag:
@@ -234,9 +233,9 @@ class Document:
                 self.mode = 'cropbottom'
             elif not flag:
                 self.mode = 'croptop'
+        self.logger.info('Current document name: %s  --- MediaBox: %s %s --- CropBox: %s %s --- Stamp mode: %s --- Stamp size: %s --- top space: %s --- bottom space: %s', self.filePath, self.mediaX, self.mediaY, self.cropX, self.cropY, self.mode, self.stampSize, self.topSpace, self.bottomSpace)
 
     def setStampParams(self):
-        self.logger.info('Current document name: %s  --- MediaBox: %s %s --- CropBox: %s %s --- Stamp mode: %s --- Stamp size: %s --- top space: %s --- bottom space: %s', self.filePath, self.mediaX, self.mediaY, self.cropX, self.cropY, self.mode, self.stampSize, self.topSpace, self.bottomSpace)
         if self.mode == 'bottom':
             self.cropT = self.cropY
             self.cropB = 0
@@ -244,7 +243,6 @@ class Document:
             self.backgroundY = 0
             self.logoY = self.backgroundHeight - self.logoHeight
             self.textY = self.backgroundHeight - self.textStampH - self.paddingTop
-
         elif self.mode == 'top':
             self.cropT = self.cropY
             self.cropB = 0
@@ -252,7 +250,6 @@ class Document:
             self.backgroundY = self.mediaY - self.stampSize
             self.logoY = self.mediaY - self.logoHeight
             self.textY = self.mediaY - self.paddingTop - self.textStampH
-
         elif self.mode == 'cropbottom':
             self.cropT = self.cropY
             self.cropB = self.marginBottom - self.stampSize
@@ -260,7 +257,6 @@ class Document:
             self.backgroundY = self.marginBottom - self.stampSize
             self.logoY = self.marginBottom - self.logoHeight
             self.textY = self.marginBottom - self.textStampH - self.paddingTop
-
         elif self.mode == 'croptop':
             self.backgroundHeight = self.stampSize
             self.backgroundY = self.cropY
@@ -270,18 +266,18 @@ class Document:
             self.textY = self.cropY + self.stampSize - self.textStampH - self.paddingTop
 
     def createStampTpl(self):
-        #  draw background
+		#  draw background
         self.tempSeite.drawImage(
-            self.backgroundFile, 0, self.backgroundY, self.backgroundWidth, self.backgroundHeight)
-        # draw logo
+			self.backgroundFile, 0, self.backgroundY, self.backgroundWidth, self.backgroundHeight)
+		# draw logo
         self.tempSeite.drawImage(self.logoFile, self.logoX,
-                                 self.logoY, self.logoWidth, self.logoHeight, mask='auto')
-        #  draw stamp text
+								 self.logoY, self.logoWidth, self.logoHeight, mask='auto')
+		#  draw stamp text
         self.textStampP.drawOn(self.tempSeite, self.textRight, self.textY)
         self.stampLinkP.drawOn(
-            self.tempSeite, self.textRight, self.textY - self.linkH - self.linespace)
+			self.tempSeite, self.textRight, self.textY - self.linkH - self.linespace)
         self.stampCopyP.drawOn(
-            self.tempSeite, self.textRight, self.textY - self.linkH - self.copyH - self.linespace*2)
+			self.tempSeite, self.textRight, self.textY - self.linkH - self.copyH - self.linespace*2)
 
         self.tempSeite.showPage()
         self.tempSeite.save()
@@ -311,7 +307,6 @@ class Document:
             for pageNum in range(1, pdfReader.numPages):
                 pageObj = pdfReader.getPage(pageNum)
                 pdfWriter.addPage(pageObj)
-
             endFile = open(self.outPdf, 'wb')
             pdfWriter.write(endFile)
             urpdf.close()

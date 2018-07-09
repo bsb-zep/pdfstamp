@@ -26,7 +26,7 @@ if Path(args["config"]).exists():
 	if args["manual"]:
 		if Path(args["manual"]).exists():
 			originFile = args["manual"]
-			newDoc = pdfStamp.Document(originFile, configData)
+			newDoc = pdfStamp.Document(originFile, configData, 'manual')
 			newDoc.startPdfParser()
 		else:
 			print('File not found: ', args["manual"])
@@ -36,7 +36,7 @@ if Path(args["config"]).exists():
 			names = csv.reader(fileList, delimiter=';', quotechar='#')
 			for item in names:
 				originFile = '/'.join(item)
-				newDoc = pdfStamp.Document(originFile, configData)
+				newDoc = pdfStamp.Document(originFile, configData, 'auto')
 				newDoc.startPdfParser()
 	else:
 		print('File not found: ', pdfFiles)
