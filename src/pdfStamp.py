@@ -20,7 +20,7 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 
 class Document:
 
-    def __init__(self, originName, metadata):
+    def __init__(self, originFile, config):
         # define logging properties
         self.logger = logging.getLogger(__name__)
         handler = logging.FileHandler('../log')
@@ -31,15 +31,16 @@ class Document:
         self.logger.addHandler(handler)
 		
         # common configuration
-        self.metadata = metadata
-        self.fileDir = '../../../articles/' + originName.split('-')[0] + '/public/'
-        self.filePath = self.fileDir + originName
-        self.fileName = originName
+        self.metadata = config["stampDataPath"] + config["metadata"]
+        #self.fileDir = '../../../articles/' + originName.split('-')[0] + '/public/'
+        self.filePath = originFile
+        self.fileName = originFile.split('/')[-1]
 		
-        self.backgroundFile = '../../white.png'
-        self.logoFile = '../../logo.png'
+        self.backgroundFile = config["stampDataPath"] + 'white.png'
+        self.logoFile = config["stampDataPath"] + 'logo.png'
         self.blankPdf = '../blank.pdf'
-        self.outPdf = '../../../articles_stamped/' + originName.split('-')[0] + '/public/' + originName
+        self.outPdf = config["stampDataPath"] + "stamped/" + self.fileName
+        #self.outPdf = '../../../articles_stamped/' + originName.split('-')[0] + '/public/' + originName
 
         #  some stamp params
         self.logoWidth = 120

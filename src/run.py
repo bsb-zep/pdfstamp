@@ -3,8 +3,7 @@ import csv
 import pdfStamp
 import argparse
 import json
-from pprint import pprint
-
+from pathlib import Path
 
 with open('../log', 'w'):
     pass
@@ -15,28 +14,31 @@ parser.add_argument("-c", "--config", required=True, help="path to the config fi
 parser.add_argument("-m", "--manual", required=False, help="path to the pdf file")
 args = vars(parser.parse_args())
 
-try:
+# read configuration file and start stamping
+if Path(args["config"]).exists():
 	with open (args["config"]) as f:
-		configFile = json.load(f)
-		pdfFiles = configFile["files"]
-		metadata = configFile["metadata"]
-		fileName = args["manual"]
-		try:
-			with open(pdfFiles) as fileList:
-				names = csv.reader(fileList, delimiter=';', quotechar='#')
-				for fn in names:
-					originName = fn[3]
-					newDoc = pdfStamp.Document(originName, metadata)
-					newDoc.startPdfParser()
-
-		except (SystemExit, KeyboardInterrupt):
-			raise
-		except Exception as e:
-			if fileList in str(e):
-			    print(e)
-				
-except (SystemExit, KeyboardInterrupt):
-    raise
-except Exception as e:
-    if args["config"] in str(e):
-        print(e)
+		configData = json.load(f)
+		dataPath = configData["stampDataPath"]
+		pdfFiles = dataPath + configData["files"]
+		metadata = dataPath + configData["metadata"]
+		mode = args["manual"]
+	# set file name from args if manual mode is enabled
+	if args["manual"]:
+		if Path(args["manual"]).exists():
+			originFile = args["manual"]
+			newDoc = pdfStamp.Document(originFile, configData)
+			newDoc.startPdfParser()
+		else:
+			print('File not found: ', args["manual"])
+	# loop through csv file for auto mode
+	elif Path(pdfFiles).exists():
+		with open (pdfFiles) as fileList:
+			names = csv.reader(fileList, delimiter=';', quotechar='#')
+			for item in names:
+				originFile = '/'.join(item)
+				newDoc = pdfStamp.Document(originFile, configData)
+				newDoc.startPdfParser()
+	else:
+		print('File not found: ', pdfFiles)
+else:
+	print('Config file not found: ', args["config"])
