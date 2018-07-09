@@ -29,6 +29,7 @@ class Document:
             '%(asctime)s - %(levelname)s - %(message)s')
         handler.setFormatter(formatter)
         self.logger.addHandler(handler)
+		
         # common configuration
         self.metadata = metadata
         self.fileDir = '../../../articles/' + originName.split('-')[0] + '/public/'
@@ -166,7 +167,6 @@ class Document:
             self.backgroundWidth = self.mediaX
             self.logoX = self.textLeft - self.logoWidth
             self.textWidth = self.textLeft - self.textRight - self.logoWidth
-
             if self.cropY == self.mediaY and self.cropBottom == 0:
                 self.mode = 'no crop'
                 self.marginTop = self.mediaY - self.textTop
@@ -178,7 +178,8 @@ class Document:
                 self.marginTop = self.mediaY - self.textTop
                 self.marginBottom = self.cropBottom
                 self.bottomSpace = self.marginBottom
-                self.topSpace = self.mediaY - self.textTop
+                self.topSpace = self.mediaY - self.cropY
+                
         except Exception as e:
             self.logger.warning(e)
             next
@@ -234,7 +235,7 @@ class Document:
                 self.mode = 'croptop'
 
     def setStampParams(self):
-        self.logger.info('Current document name: %s  --- MediaBox: %s %s --- CropBox: %s %s --- Stamp mode: %s', self.filePath, self.mediaX, self.mediaY, self.cropX, self.cropY, self.mode)
+        self.logger.info('Current document name: %s  --- MediaBox: %s %s --- CropBox: %s %s --- Stamp mode: %s --- Stamp size: %s --- top space: %s --- bottom space: %s', self.filePath, self.mediaX, self.mediaY, self.cropX, self.cropY, self.mode, self.stampSize, self.topSpace, self.bottomSpace)
         if self.mode == 'bottom':
             self.cropT = self.cropY
             self.cropB = 0
