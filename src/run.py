@@ -11,7 +11,7 @@ logging.basicConfig(filename='../log', format='%(asctime)s - %(levelname)s - %(m
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-c", "--config", required=True, help="path to the config file")
-parser.add_argument("-m", "--manual", required=False, help="path to the pdf file")
+parser.add_argument("-f", "--file", required=False, help="path to the pdf file")
 args = vars(parser.parse_args())
 
 # read configuration file and start stamping
@@ -23,13 +23,13 @@ if Path(args["config"]).exists():
 		metadata = dataPath + configData["metadata"]
 		mode = args["manual"]
 	# set file name from args if manual mode is enabled
-	if args["manual"]:
-		if Path(args["manual"]).exists():
-			originFile = args["manual"]
-			newDoc = pdfStamp.Document(originFile, configData, 'manual')
+	if args["file"]:
+		if Path(args["file"]).exists():
+			originFile = args["file"]
+			newDoc = pdfStamp.Document(originFile, configData, 'file')
 			newDoc.startPdfParser()
 		else:
-			print('File not found: ', args["manual"])
+			print('File not found: ', args["file"])
 	# loop through csv file for auto mode
 	elif Path(pdfFiles).exists():
 		with open (pdfFiles) as fileList:

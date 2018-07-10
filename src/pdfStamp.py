@@ -40,7 +40,8 @@ class Document:
         self.backgroundFile = config["stampDataPath"] + 'white.png'
         self.logoFile = config["stampDataPath"] + 'logo.png'
         self.blankPdf = '../blank.pdf'
-        self.outPdf = config["outputPath"] + self.fileName
+        self.outPdf = config["outputPath"] + \
+            self.fileName
         #  some stamp params
         self.logoWidth = 120
         self.logoHeight = 41
@@ -61,9 +62,13 @@ class Document:
             self.mergePDFs()
         else:
             self.manualMode()
+            self.createStampTpl()
+            self.mergePDFs()
 
     def manualMode(self):
-        msg = """There is no enough space on the top/bottom corner of the document
+        msg = """File: %s
+There is no enough space on the top/bottom corner of the document
+Document height: %s
 Stamp height: %s
 
 ------------------------
@@ -78,17 +83,36 @@ Stamp height: %s
 |     free space: %s   |
 ------------------------
 
-Available options:
-(1) disable padding inside stamp area
-(2) manual set stamp coors
-        """ % (self.stampSize, self.topSpace, self.bottomSpace)
+        """ % (self.filePath, self.mediaY, self.stampSize, self.topSpace, self.bottomSpace)
         print(msg)
 
-        opt = input("Choose an option: ")
-        if opt == '1' or opt == '(1)':
-            print('Trying to stamp the pdf with disabled padding inside stamp area...')
-        elif opt == '2' or opt == '(2)':
-            print('Set coors')
+        coors = input("Manual set stamp coors: position(top/bottom), vertical shift, linespacing, right shift, left shift\n")
+        coorsArr = coors.split(',')
+        pos = coorsArr[0]
+        self.paddingBottom = 0
+        self.paddingTop = 0
+        self.linespace = int(coorsArr[2])
+        topShift = int(coorsArr[1])
+        rightShift = int(coorsArr[3])
+        leftShift = int(coorsArr[4])
+        self.logoX = self.logoX + rightShift
+        self.textWidth = self.textWidth + rightShift + leftShift
+        self.textRight = self.textRight - leftShift
+        self.getStampSize()
+        if pos == 'bottom':
+            self.cropT = self.mediaY
+            self.cropB = 0
+            self.backgroundHeight = self.stampSize + topShift
+            self.backgroundY = 0
+            self.logoY = self.backgroundHeight - self.logoHeight
+            self.textY = self.backgroundHeight - self.textStampH
+        elif pos == 'top':
+            self.cropT = self.mediaY
+            self.cropB = 0
+            self.backgroundHeight = self.stampSize + topShift
+            self.backgroundY = self.mediaY - self.backgroundHeight
+            self.logoY = self.mediaY - self.logoHeight - topShift
+            self.textY = self.mediaY - self.textStampH -topShift
 
     def getPageCoors(self):
         # check if pdfinfo installed
@@ -451,7 +475,7 @@ Available options:
                 borderPadding=2,
                 wordWrap='LTR'
             )
-            tt = re.sub("â", "-", tt)
+            tt = re.sub("Ã¢", "-", tt)
 
             with open("../vendor/whitelist_reg.csv") as wlist:
                 wl = csv.reader(wlist)
@@ -476,7 +500,7 @@ Available options:
                     flag = 1
                     if char not in white_freeserif:
                         self.logger.error(
-                            "Achtung! Das folgende Symbol soll manuel überprüft werden: " + numm)
+                            "Achtung! Das folgende Symbol soll manuel Ã¼berprÃ¼ft werden: " + numm)
                         self.logger.error(
                             "Die entsprechende Datei liegt unter "+self.fileName)
             style = style2 if flag == 1 else style1
