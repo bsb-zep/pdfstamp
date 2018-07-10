@@ -29,38 +29,66 @@ class Document:
             '%(asctime)s - %(levelname)s - %(message)s')
         handler.setFormatter(formatter)
         self.logger.addHandler(handler)
-		
+
         # common configuration
         self.metadata = config["stampDataPath"] + config["metadata"]
-        self.filePath = config["inputPath"] + originFile if mode == 'auto' else originFile
+        self.filePath = config["inputPath"] + \
+            originFile if mode == 'auto' else originFile
         self.fileName = originFile.split('/')[-1]
-		
+        self.shortName = self.fileName.split('-')[0]
+
         self.backgroundFile = config["stampDataPath"] + 'white.png'
         self.logoFile = config["stampDataPath"] + 'logo.png'
         self.blankPdf = '../blank.pdf'
-        self.outPdf = config["inputPath"] + originFile.replace('articles', 'articles_stamped')
-
+        self.outPdf = config["outputPath"] + self.fileName
         #  some stamp params
         self.logoWidth = 120
         self.logoHeight = 41
-        self.paddingBottom = 10
-        self.paddingTop = 5
+        self.paddingBottom = 3
+        self.paddingTop = 3
         self.linespace = 3
 
     def startPdfParser(self):
         self.getPageCoors()
-        if self.getOcrCoors():
-            self.setDocType()
-            self.parseMetadata()
-            self.getStampSize()
-            self.setStampPosition()
-            if self.mode != "NO SPACE":
-                self.setStampParams()
-                self.createStampTpl()
-                self.mergePDFs()
+        self.getOcrCoors()
+        self.setDocType()
+        self.parseMetadata()
+        self.getStampSize()
+        self.setStampPosition()
+        if self.mode != "NO SPACE":
+            self.setStampParams()
+            self.createStampTpl()
+            self.mergePDFs()
         else:
-            self.logger.error('PDF coordinates are currupt or unreadable. Filename: '+self.filePath)
-            next
+            self.manualMode()
+
+    def manualMode(self):
+        msg = """There is no enough space on the top/bottom corner of the document
+Stamp height: %s
+
+------------------------
+|     free space: %s   |
+|----------------------|
+|                      |
+|                      |
+|     Text content     |
+|                      |
+|                      |
+|----------------------|
+|     free space: %s   |
+------------------------
+
+Available options:
+(1) disable padding inside stamp area
+(2) manual set stamp coors
+        """ % (self.stampSize, self.topSpace, self.bottomSpace)
+        print(msg)
+
+        opt = input("Choose an option: ")
+        if opt == '1' or opt == '(1)':
+            print('Trying to stamp the pdf with disabled padding inside stamp area...')
+        elif opt == '2' or opt == '(2)':
+            print('Set coors')
 
     def getPageCoors(self):
         # check if pdfinfo installed
@@ -76,10 +104,10 @@ class Document:
 
             # cropBox coordinates
             CropBox = boxes[1].split(",")
-            #print(CropBox)
+            # print(CropBox)
             self.cropBottom = int(float(CropBox[4]))
             self.cropX = int(float(CropBox[5]))
-			
+
             self.cropY = int(float(CropBox[6]))
 
             # mediaBox coordinates
@@ -87,7 +115,7 @@ class Document:
             self.mediaBottom = int(float(MediaBox[3]))
             self.mediaX = int(float(MediaBox[4]))
             self.mediaY = int(float(MediaBox[5]))
-            #print(MediaBox)
+            # print(MediaBox)
 
         else:
             # self.logger.error(progName + ' not installed on your system.')
@@ -96,7 +124,7 @@ class Document:
     def getOcrCoors(self):
         try:
             # get OCR data
-            proc = subprocess.Popen(['python', '../vendor/pdfminer/tools/pdf2txt.py',
+            proc = subprocess.Popen(['python3', '../vendor/pdfminer/tools/pdf2txt.py',
                                      '-p', '1', '-t', 'xml', self.filePath], stdout=subprocess.PIPE)
             procOutput = proc.communicate()[0]
             tree = etree.fromstring(procOutput)
@@ -109,7 +137,7 @@ class Document:
                 bottomTest = bottomTest[1].split('.')
                 textBottomRight = int(bottomTest[0])
 
-            # get coors for the text on the bottom
+            # # get coors for the text on the bottom
             for textbox in root.findall("./page[@id='1']/textbox[last()]/textline[last()]"):
                 bottom = textbox.attrib['bbox']
                 bottom = bottom.split(',')
@@ -117,7 +145,7 @@ class Document:
                 self.textBottom = int(bottom[0])
                 self.textBottom = textBottomRight if self.textBottom > textBottomRight else self.textBottom
 
-            # Get OCR lmargins
+            # Get OCR margins
             rand_list = ""
             for textbox in root.findall("./page/textbox/textline"):
                 right = textbox.attrib['bbox']
@@ -157,7 +185,8 @@ class Document:
             self.stampAreaWidth = self.textLeft-self.textRight
             return True
         except Exception as e:
-            self.logger.warning('Pdf coordinates are currupt or unreadable. Filename: '+self.filePath)
+            self.logger.warning(
+                'Pdf coordinates are currupt or unreadable. Filename: '+self.filePath)
             self.logger.error(e)
             next
             return False
@@ -179,7 +208,7 @@ class Document:
                 self.marginBottom = self.cropBottom
                 self.bottomSpace = self.marginBottom
                 self.topSpace = self.mediaY - self.cropY
-                
+
         except Exception as e:
             self.logger.warning(e)
             next
@@ -204,17 +233,28 @@ class Document:
             self.stampSize = self.textStampH + self.linkH + self.copyH + \
                 self.linespace*2 + self.paddingBottom + self.paddingTop
         except Exception as e:
-            self.logger.warning("Can't define the stamp size for current file: "+self.filePath)
+            self.logger.warning(
+                "Can't define the stamp size for current file: "+self.filePath)
             next
 
     # check free space on the top/bottom and return boolean (true for bottom, false for top, None for no space)
     def checkTopBottom(self):
-        if self.stampSize < self.bottomSpace:
+        if self.stampSize <= self.bottomSpace:
             return True
-        elif self.stampSize < self.topSpace:
+        elif self.stampSize <= self.topSpace:
             return False
         elif self.stampSize > self.bottomSpace and self.stampSize > self.topSpace:
-            return None
+            cropedStampSize = self.stampSize - self.paddingTop - self.paddingBottom
+            if cropedStampSize > self.bottomSpace and cropedStampSize > self.topSpace:
+                return None
+            else:
+                self.paddingTop = 1
+                self.paddingBottom = 1
+                self.getStampSize()
+                if cropedStampSize <= self.bottomSpace:
+                    return True
+                elif cropedStampSize <= self.topSpace:
+                    return False
 
     def setStampPosition(self):
         flag = self.checkTopBottom()
@@ -233,7 +273,8 @@ class Document:
                 self.mode = 'cropbottom'
             elif not flag:
                 self.mode = 'croptop'
-        self.logger.info('Current document name: %s  --- MediaBox: %s %s --- CropBox: %s %s --- Stamp mode: %s --- Stamp size: %s --- top space: %s --- bottom space: %s', self.filePath, self.mediaX, self.mediaY, self.cropX, self.cropY, self.mode, self.stampSize, self.topSpace, self.bottomSpace)
+        self.logger.info('Current document name: %s  --- MediaBox: %s %s --- CropBox: %s %s --- Stamp mode: %s --- Stamp size: %s --- top space: %s --- bottom space: %s',
+                         self.filePath, self.mediaX, self.mediaY, self.cropX, self.cropY, self.mode, self.stampSize, self.topSpace, self.bottomSpace)
 
     def setStampParams(self):
         if self.mode == 'bottom':
@@ -266,18 +307,18 @@ class Document:
             self.textY = self.cropY + self.stampSize - self.textStampH - self.paddingTop
 
     def createStampTpl(self):
-		#  draw background
+                #  draw background
         self.tempSeite.drawImage(
-			self.backgroundFile, 0, self.backgroundY, self.backgroundWidth, self.backgroundHeight)
-		# draw logo
+            self.backgroundFile, 0, self.backgroundY, self.backgroundWidth, self.backgroundHeight)
+        # draw logo
         self.tempSeite.drawImage(self.logoFile, self.logoX,
-								 self.logoY, self.logoWidth, self.logoHeight, mask='auto')
-		#  draw stamp text
+                                 self.logoY, self.logoWidth, self.logoHeight, mask='auto')
+        #  draw stamp text
         self.textStampP.drawOn(self.tempSeite, self.textRight, self.textY)
         self.stampLinkP.drawOn(
-			self.tempSeite, self.textRight, self.textY - self.linkH - self.linespace)
+            self.tempSeite, self.textRight, self.textY - self.linkH - self.linespace)
         self.stampCopyP.drawOn(
-			self.tempSeite, self.textRight, self.textY - self.linkH - self.copyH - self.linespace*2)
+            self.tempSeite, self.textRight, self.textY - self.linkH - self.copyH - self.linespace*2)
 
         self.tempSeite.showPage()
         self.tempSeite.save()
@@ -351,11 +392,13 @@ class Document:
                 self.stampText = '<i>'+creatorLastName+'</i>, '+creatorFirstName+': Tagungsbericht zu: ' + \
                     title+'. In: Bohemia '+vol + \
                     ' ('+year+') H. '+issue+', '+pages+'.'
-            
+
             if self.stampText == '':
-                self.logger.warning('Metadata for the current file is not found: '+self.filePath)
+                self.logger.warning(
+                    'Metadata for the current file is not found: '+self.filePath)
         except Exception as e:
-            self.logger.warning('There is a Problem with metadata in the file: '+self.filePath)
+            self.logger.warning(
+                'There is a Problem with metadata in the file: '+self.filePath)
             self.logger.error(e)
             next
 
@@ -432,8 +475,10 @@ class Document:
                 if char not in white_reg:
                     flag = 1
                     if char not in white_freeserif:
-                        self.logger.error("Achtung! Das folgende Symbol soll manuel überprüft werden: " + numm)
-                        self.logger.error("Die entsprechende Datei liegt unter "+self.fileName)
+                        self.logger.error(
+                            "Achtung! Das folgende Symbol soll manuel überprüft werden: " + numm)
+                        self.logger.error(
+                            "Die entsprechende Datei liegt unter "+self.fileName)
             style = style2 if flag == 1 else style1
             return style
         except:
