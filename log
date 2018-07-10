@@ -1,1 +1,5 @@
-2018-07-10 12:44:50,579 - INFO - Current document name: /home/anovikov/repos/stamp_data/1354-2094-1-PB.pdf  --- MediaBox: 422 673 --- CropBox: 422 673 --- Stamp mode: bottom --- Stamp size: 66 --- top space: 61 --- bottom space: 71
+2018-07-10 17:07:45,918 - WARNING - Pdf coordinates are currupt or unreadable. Filename: /home/anovikov/articles/725/public/725-1027-1-PB.pdf
+2018-07-10 17:07:45,919 - ERROR - None (line 0)
+2018-07-10 17:07:45,919 - ERROR - None (line 0)
+2018-07-10 17:07:45,919 - WARNING - 'Document' object has no attribute 'textLeft'
+2018-07-10 17:07:46,023 - WARNING - Can't define the stamp size for current file: /home/anovikov/articles/725/public/725-1027-1-PB.pdf

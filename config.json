@@ -1,7 +1,7 @@
 {
-  "stampDataPath":"/home/anovikov/repos/stamp_data/",
+  "stampDataPath":"/home/anovikov/repos/stampData/",
   "files": "fileList.csv",
   "metadata": "oai_last.csv",
-  "outputPath":"/home/anovikov/repos/stamp_data/pdf/",
-  "inputPath":"/home/anovikov/repos/stamp_data/"
+  "outputPath":"/home/anovikov/articles_stamped/",
+  "inputPath":"/home/anovikov/"
 }

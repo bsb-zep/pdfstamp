@@ -40,7 +40,7 @@ class Document:
         self.backgroundFile = config["stampDataPath"] + 'white.png'
         self.logoFile = config["stampDataPath"] + 'logo.png'
         self.blankPdf = '../blank.pdf'
-        self.outPdf = config["outputPath"] + self.fileName
+        self.outPdf = config["outputPath"] + self.shortName + '/public/' + self.fileName
         #  some stamp params
         self.logoWidth = 120
         self.logoHeight = 41
@@ -59,8 +59,9 @@ class Document:
             self.setStampParams()
             self.createStampTpl()
             self.mergePDFs()
-        else:
-            self.manualMode()
+        #else:
+            #next
+            #self.manualMode()
 
     def manualMode(self):
         msg = """There is no enough space on the top/bottom corner of the document
@@ -124,7 +125,7 @@ Available options:
     def getOcrCoors(self):
         try:
             # get OCR data
-            proc = subprocess.Popen(['python3', '../vendor/pdfminer/tools/pdf2txt.py',
+            proc = subprocess.Popen(['python', '../vendor/pdfminer/tools/pdf2txt.py',
                                      '-p', '1', '-t', 'xml', self.filePath], stdout=subprocess.PIPE)
             procOutput = proc.communicate()[0]
             tree = etree.fromstring(procOutput)
@@ -250,6 +251,7 @@ Available options:
             else:
                 self.paddingTop = 1
                 self.paddingBottom = 1
+                self.linespace = 1
                 self.getStampSize()
                 if cropedStampSize <= self.bottomSpace:
                     return True
