@@ -40,8 +40,12 @@ class Document:
         self.backgroundFile = config["stampDataPath"] + 'white.png'
         self.logoFile = config["stampDataPath"] + 'logo.png'
         self.blankPdf = '../blank.pdf'
+<<<<<<< HEAD
         self.outPdf = config["outputPath"] + \
             self.fileName
+=======
+        self.outPdf = config["outputPath"] + self.shortName + '/public/' + self.fileName
+>>>>>>> 7f732daad88567bb35946d26a46bbdd1877a514f
         #  some stamp params
         self.logoWidth = 120
         self.logoHeight = 41
@@ -60,10 +64,12 @@ class Document:
             self.setStampParams()
             self.createStampTpl()
             self.mergePDFs()
+
         else:
             self.manualMode()
             self.createStampTpl()
             self.mergePDFs()
+
 
     def manualMode(self):
         msg = """File: %s
@@ -148,7 +154,7 @@ Stamp height: %s
     def getOcrCoors(self):
         try:
             # get OCR data
-            proc = subprocess.Popen(['python3', '../vendor/pdfminer/tools/pdf2txt.py',
+            proc = subprocess.Popen(['python', '../vendor/pdfminer/tools/pdf2txt.py',
                                      '-p', '1', '-t', 'xml', self.filePath], stdout=subprocess.PIPE)
             procOutput = proc.communicate()[0]
             tree = etree.fromstring(procOutput)
@@ -274,6 +280,7 @@ Stamp height: %s
             else:
                 self.paddingTop = 1
                 self.paddingBottom = 1
+                self.linespace = 1
                 self.getStampSize()
                 if cropedStampSize <= self.bottomSpace:
                     return True

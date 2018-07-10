@@ -3,3 +3,4 @@ __pycache__
 blank.pdf
 log
 config.json
+vendor/pdfminer/*
