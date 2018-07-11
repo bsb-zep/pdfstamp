@@ -21,7 +21,7 @@ if Path(args["config"]).exists():
 		dataPath = configData["stampDataPath"]
 		pdfFiles = dataPath + configData["files"]
 		metadata = dataPath + configData["metadata"]
-		mode = args["manual"]
+		mode = args["file"]
 	# set file name from args if manual mode is enabled
 	if args["file"]:
 		if Path(args["file"]).exists():

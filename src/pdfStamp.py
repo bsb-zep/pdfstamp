@@ -40,12 +40,7 @@ class Document:
         self.backgroundFile = config["stampDataPath"] + 'white.png'
         self.logoFile = config["stampDataPath"] + 'logo.png'
         self.blankPdf = '../blank.pdf'
-<<<<<<< HEAD
-        self.outPdf = config["outputPath"] + \
-            self.fileName
-=======
         self.outPdf = config["outputPath"] + self.shortName + '/public/' + self.fileName
->>>>>>> 7f732daad88567bb35946d26a46bbdd1877a514f
         #  some stamp params
         self.logoWidth = 120
         self.logoHeight = 41
@@ -65,10 +60,10 @@ class Document:
             self.createStampTpl()
             self.mergePDFs()
 
-        else:
-            self.manualMode()
-            self.createStampTpl()
-            self.mergePDFs()
+        #else:
+            #self.manualMode()
+            #self.createStampTpl()
+            #self.mergePDFs()
 
 
     def manualMode(self):
