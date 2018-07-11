@@ -43,10 +43,11 @@ class Document:
         self.outPdf = config["outputPath"] + self.shortName + '/public/' + self.fileName
         #  some stamp params
         self.logoWidth = 120
-        self.logoHeight = 41
+        self.logoHeight = self.logoWidth / 2.93
         self.paddingBottom = 3
         self.paddingTop = 3
         self.linespace = 3
+        self.newFontSize = 0
 
     def startPdfParser(self):
         self.getPageCoors()
@@ -61,10 +62,50 @@ class Document:
             self.mergePDFs()
 
         #else:
-            #self.manualMode()
-            #self.createStampTpl()
-            #self.mergePDFs()
+        #    self.manualMode()
+        #    self.createStampTpl()
+        #    self.mergePDFs()
 
+    def promtCall(self):
+        coors = input("Manual set stamp coors: position(top/bottom), vertical shift, linespacing, right shift, left shift, font size, logo width\n")
+        coorsArr = coors.split(',')
+
+        pos = coorsArr[0]
+        if pos and pos == 'bottom' or pos == 'top':
+            # disable padding to get more vertical space
+            self.paddingBottom = 0
+            self.paddingTop = 0
+            # parse promt input
+            self.linespace = int(coorsArr[2]) if coorsArr[2] else 3
+            topShift = int(coorsArr[1]) if coorsArr[1] else 0
+            rightShift = int(coorsArr[3]) if coorsArr[3] else 0
+            leftShift = int(coorsArr[4]) if coorsArr[4] else 0
+            self.logoWidth = int(coorsArr[6]) if coorsArr[6] else self.logoWidth
+            self.logoHeight = self.logoWidth / 2.93
+            self.newFontSize = int(coorsArr[5]) if coorsArr[5] else 9
+            self.logoX = self.textLeft - self.logoWidth
+            self.textWidth = self.textLeft - self.textRight - self.logoWidth
+            self.logoX = self.logoX + rightShift
+            self.textWidth = self.textWidth + rightShift + leftShift
+            self.textRight = self.textRight - leftShift
+            self.getStampSize()
+            if pos == 'bottom':
+                self.cropT = self.mediaY
+                self.cropB = 0
+                self.backgroundHeight = self.stampSize + topShift
+                self.backgroundY = 0
+                self.logoY = self.backgroundHeight - self.logoHeight
+                self.textY = self.backgroundHeight - self.textStampH
+            elif pos == 'top':
+                self.cropT = self.mediaY
+                self.cropB = 0
+                self.backgroundHeight = self.stampSize + topShift
+                self.backgroundY = self.mediaY - self.backgroundHeight
+                self.logoY = self.mediaY - self.logoHeight - topShift
+                self.textY = self.mediaY - self.textStampH -topShift
+        else:
+            print('ERROR: first parameter must be bottom/top!')
+            self.promtCall()
 
     def manualMode(self):
         msg = """File: %s
@@ -81,39 +122,12 @@ Stamp height: %s
 |                      |
 |                      |
 |----------------------|
-|     free space: %s   |
+|%s| free space: %s|%s |
 ------------------------
 
-        """ % (self.filePath, self.mediaY, self.stampSize, self.topSpace, self.bottomSpace)
+        """ % (self.filePath, self.mediaY, self.stampSize, self.topSpace, self.textRight, self.bottomSpace, self.mediaX - self.textLeft)
         print(msg)
-
-        coors = input("Manual set stamp coors: position(top/bottom), vertical shift, linespacing, right shift, left shift\n")
-        coorsArr = coors.split(',')
-        pos = coorsArr[0]
-        self.paddingBottom = 0
-        self.paddingTop = 0
-        self.linespace = int(coorsArr[2])
-        topShift = int(coorsArr[1])
-        rightShift = int(coorsArr[3])
-        leftShift = int(coorsArr[4])
-        self.logoX = self.logoX + rightShift
-        self.textWidth = self.textWidth + rightShift + leftShift
-        self.textRight = self.textRight - leftShift
-        self.getStampSize()
-        if pos == 'bottom':
-            self.cropT = self.mediaY
-            self.cropB = 0
-            self.backgroundHeight = self.stampSize + topShift
-            self.backgroundY = 0
-            self.logoY = self.backgroundHeight - self.logoHeight
-            self.textY = self.backgroundHeight - self.textStampH
-        elif pos == 'top':
-            self.cropT = self.mediaY
-            self.cropB = 0
-            self.backgroundHeight = self.stampSize + topShift
-            self.backgroundY = self.mediaY - self.backgroundHeight
-            self.logoY = self.mediaY - self.logoHeight - topShift
-            self.textY = self.mediaY - self.textStampH -topShift
+        self.promtCall()
 
     def getPageCoors(self):
         # check if pdfinfo installed
@@ -140,7 +154,7 @@ Stamp height: %s
             self.mediaBottom = int(float(MediaBox[3]))
             self.mediaX = int(float(MediaBox[4]))
             self.mediaY = int(float(MediaBox[5]))
-            # print(MediaBox)
+            #print(MediaBox)
 
         else:
             # self.logger.error(progName + ' not installed on your system.')
@@ -247,7 +261,6 @@ Stamp height: %s
             self.textStampP = Paragraph(self.stampText, style)
             self.stampLinkP = Paragraph(self.stampLink, style)
             self.stampCopyP = Paragraph(self.stampCopy, style)
-
             #  get X/Y coors of the stamp on the temp page
             textStampW, self.textStampH = self.textStampP.wrapOn(
                 self.tempSeite, self.textWidth, self.cropY)
@@ -273,7 +286,7 @@ Stamp height: %s
             if cropedStampSize > self.bottomSpace and cropedStampSize > self.topSpace:
                 return None
             else:
-                self.paddingTop = 1
+                self.paddingTop = 0
                 self.paddingBottom = 1
                 self.linespace = 1
                 self.getStampSize()
@@ -445,8 +458,11 @@ Stamp height: %s
     def setFontArt(self, t):
         try:
             tt = t
-            fontS = 8
-            lead = 9
+            if self.newFontSize and self.newFontSize != 0:
+                fontS = self.newFontSize
+            else:
+                fontS = 8
+            lead = fontS
             pdfmetrics.registerFont(TTFont('Reg', '../vendor/reg.ttf'))
             pdfmetrics.registerFont(TTFont('Regi', '../vendor/regi.ttf'))
             addMapping('Reg', 0, 0, 'Reg')
