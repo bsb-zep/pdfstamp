@@ -61,10 +61,10 @@ class Document:
             self.createStampTpl()
             self.mergePDFs()
 
-        #else:
-        #    self.manualMode()
-        #    self.createStampTpl()
-        #    self.mergePDFs()
+        else:
+            self.manualMode()
+            self.createStampTpl()
+            self.mergePDFs()
 
     def promtCall(self):
         coors = input("Manual set stamp coors: position(top/bottom), vertical shift, linespacing, right shift, left shift, font size, logo width\n")
