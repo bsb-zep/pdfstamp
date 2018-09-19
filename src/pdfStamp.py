@@ -463,8 +463,8 @@ Stamp height: %s
             else:
                 fontS = 8
             lead = fontS
-            pdfmetrics.registerFont(TTFont('Reg', '../vendor/reg.ttf'))
-            pdfmetrics.registerFont(TTFont('Regi', '../vendor/regi.ttf'))
+            pdfmetrics.registerFont(TTFont('Reg', '../vendor/CormorantGaramond.ttf'))
+            pdfmetrics.registerFont(TTFont('Regi', '../vendor/CormorantGaramondItalic.ttf'))
             addMapping('Reg', 0, 0, 'Reg')
             addMapping('Reg', 0, 1, 'Regi')
             style1 = ParagraphStyle(
