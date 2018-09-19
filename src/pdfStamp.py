@@ -463,13 +463,13 @@ Stamp height: %s
             else:
                 fontS = 8
             lead = fontS
-            pdfmetrics.registerFont(TTFont('Reg', '../vendor/CormorantGaramond.ttf'))
-            pdfmetrics.registerFont(TTFont('Regi', '../vendor/CormorantGaramondItalic.ttf'))
-            addMapping('Reg', 0, 0, 'Reg')
-            addMapping('Reg', 0, 1, 'Regi')
+            pdfmetrics.registerFont(TTFont('Cormorant', '../vendor/CormorantGaramond.ttf'))
+            pdfmetrics.registerFont(TTFont('CormorantItalic', '../vendor/CormorantGaramondItalic.ttf'))
+            addMapping('Cormorant', 0, 0, 'Cormorant')
+            addMapping('Cormorant', 0, 1, 'CormorantItalic')
             style1 = ParagraphStyle(
                 name='Normal',
-                fontName='Reg',
+                fontName='Cormorant',
                 fontSize=fontS,
                 leading=lead,
                 borderWidth=0,
@@ -478,14 +478,14 @@ Stamp height: %s
                 wordWrap='LTR'
             )
 
-            pdfmetrics.registerFont(TTFont('Free', '../vendor/FreeSerif.ttf'))
+            pdfmetrics.registerFont(TTFont('FreeSerif', '../vendor/FreeSerif.ttf'))
             pdfmetrics.registerFont(
-                TTFont('FreeIt', '../vendor/FreeSerifItalic.ttf'))
-            addMapping('Free', 0, 0, 'Free')
-            addMapping('Free', 0, 1, 'FreeIt')
+                TTFont('FreeSerifItalic', '../vendor/FreeSerifItalic.ttf'))
+            addMapping('FreeSerif', 0, 0, 'FreeSerif')
+            addMapping('FreeSerif', 0, 1, 'FreeSerifItalic')
             style2 = ParagraphStyle(
                 name='Normal',
-                fontName='Free',
+                fontName='FreeSerif',
                 fontSize=fontS,
                 leading=lead,
                 borderWidth=0,
